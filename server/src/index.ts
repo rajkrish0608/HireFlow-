@@ -17,10 +17,14 @@ import codingRouter from './modules/coding/coding.router';
 import recordingsRouter from './modules/recordings/recordings.router';
 import earningsRouter from './modules/earnings/earnings.router';
 import paymentsRouter from './modules/payments/payments.router';
+import adminRouter from './modules/admin/admin.router';
 
 // ─── Middleware ───────────────────────────────────────────────────────────────
 import { authenticate } from './middleware/authenticate';
 import { errorHandler } from './middleware/errorHandler';
+import { apiLimiter, authLimiter, paymentLimiter } from './middleware/rateLimiter';
+import { requestId, requestLogger } from './middleware/requestLogger';
+import { recordCheatEvent } from './middleware/antiCheat';
 
 const app = express();
 
@@ -34,18 +38,25 @@ app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 app.set('trust proxy', 1);
 
+// ─── Request Tracing & Logging ────────────────────────────────────────────────
+app.use(requestId);
+app.use(requestLogger);
+
+// ─── Global Rate Limiter ──────────────────────────────────────────────────────
+app.use('/api/', apiLimiter);
+
 // ─── Health Check ─────────────────────────────────────────────────────────────
 app.get('/health', (_req, res) => {
     res.json({
         status: 'ok',
         service: 'hireflow-api',
-        version: '2.0.0',
+        version: '3.0.0',
         timestamp: new Date().toISOString(),
     });
 });
 
 // ─── Public Routes ────────────────────────────────────────────────────────────
-app.use('/api/auth', authRouter);
+app.use('/api/auth', authLimiter, authRouter);
 
 // ─── Protected: Profile ───────────────────────────────────────────────────────
 app.get('/api/me', authenticate, (req, res) => {
@@ -66,6 +77,7 @@ app.use('/api/report', scorecardsRouter);
 
 // ─── Coding Challenge Engine ──────────────────────────────────────────────────
 app.use('/api/coding', codingRouter);
+app.post('/api/coding/anticheat/report', authenticate, recordCheatEvent);
 
 // ─── Video & Recordings ───────────────────────────────────────────────────────
 app.use('/api/recordings', recordingsRouter);
@@ -74,7 +86,10 @@ app.use('/api/recordings', recordingsRouter);
 app.use('/api/earnings', earningsRouter);
 
 // ─── Payments & Monetization ─────────────────────────────────────────────────
-app.use('/api/payments', paymentsRouter);
+app.use('/api/payments', paymentLimiter, paymentsRouter);
+
+// ─── Admin Dashboard & Analytics ──────────────────────────────────────────────
+app.use('/api/admin', adminRouter);
 
 // ─── 404 Handler ──────────────────────────────────────────────────────────────
 app.use((_req, res) => {
@@ -85,6 +100,8 @@ app.use((_req, res) => {
 app.use(errorHandler);
 
 // ─── Bootstrap ────────────────────────────────────────────────────────────────
+let server: ReturnType<typeof app.listen>;
+
 async function bootstrap() {
     try {
         const client = await pool.connect();
@@ -93,24 +110,53 @@ async function bootstrap() {
 
         await redis.connect();
 
-        app.listen(config.port, () => {
-            console.log(`\n🚀 HireFlow API v2.0 → http://localhost:${config.port}`);
+        server = app.listen(config.port, () => {
+            console.log(`\n🚀 HireFlow API v3.0 → http://localhost:${config.port}`);
             console.log(`   Environment : ${config.nodeEnv}`);
             console.log(`   Health      : http://localhost:${config.port}/health`);
             console.log('\n📋 API Routes:');
+            console.log('   POST  /api/auth/login & /register');
             console.log('   POST  /api/jobs/create');
             console.log('   POST  /api/interviews/schedule');
             console.log('   GET   /api/interviewer/match?jobRoleId=');
             console.log('   POST  /api/scorecard/submit');
-            console.log('   GET   /api/report/:sessionId');
+            console.log('   POST  /api/payments/order');
             console.log('   POST  /api/coding/challenge/start');
-            console.log('   GET   /api/earnings\n');
+            console.log('   GET   /api/admin/health');
+            console.log('   GET   /api/admin/revenue\n');
         });
     } catch (error) {
         console.error('[Bootstrap] ❌ Failed to start server:', error);
         process.exit(1);
     }
 }
+
+// ─── Graceful Shutdown ────────────────────────────────────────────────────────
+async function gracefulShutdown(signal: string) {
+    console.log(`\n[Shutdown] Received ${signal}. Closing gracefully...`);
+
+    if (server) {
+        server.close(() => {
+            console.log('[Shutdown] HTTP server closed.');
+        });
+    }
+
+    try {
+        await pool.end();
+        console.log('[Shutdown] PostgreSQL pool closed.');
+    } catch { /* ignore */ }
+
+    try {
+        redis.disconnect();
+        console.log('[Shutdown] Redis disconnected.');
+    } catch { /* ignore */ }
+
+    console.log('[Shutdown] ✅ Graceful shutdown complete.');
+    process.exit(0);
+}
+
+process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+process.on('SIGINT', () => gracefulShutdown('SIGINT'));
 
 bootstrap();
 
