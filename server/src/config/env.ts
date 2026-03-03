@@ -23,4 +23,15 @@ export const config = {
         expiresIn: process.env.JWT_EXPIRES_IN || '7d',
     },
     bcryptRounds: parseInt(process.env.BCRYPT_ROUNDS || '12', 10),
+    email: {
+        host: process.env.SMTP_HOST || 'smtp.ethereal.email',
+        port: parseInt(process.env.SMTP_PORT || '587', 10),
+        user: process.env.SMTP_USER || '',
+        pass: process.env.SMTP_PASS || '',
+        from: process.env.EMAIL_FROM || 'noreply@hireflow.io',
+    },
+    storage: {
+        bucketName: process.env.STORAGE_BUCKET || 'hireflow-recordings',
+        region: process.env.STORAGE_REGION || 'ap-south-1',
+    },
 } as const;
