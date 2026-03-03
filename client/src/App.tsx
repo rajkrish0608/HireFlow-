@@ -1,32 +1,45 @@
-import './index.css';
+import React from 'react';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import Layout from './components/Layout';
+import HRDashboard from './pages/hr/Dashboard';
+import JobRoles from './pages/hr/JobRoles';
+import Candidates from './pages/hr/Candidates';
+import CalendarView from './pages/hr/Calendar';
+import ScorecardReport from './pages/hr/ScorecardReport';
+import InterviewerDashboard from './pages/interviewer/Dashboard';
+import CodingEngine from './pages/shared/CodingEngine';
+import EvaluationForm from './pages/shared/EvaluationForm';
+import InterviewRoom from './pages/shared/InterviewRoom';
 
 function App() {
   return (
-    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: '2rem', padding: '2rem' }}>
-      <div style={{ textAlign: 'center', maxWidth: '640px' }}>
-        <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--text-sm)', color: 'var(--color-accent-tertiary)', letterSpacing: '0.2em', marginBottom: '1.5rem', textTransform: 'uppercase' }}>
-          Technical Interview-as-a-Service
-        </p>
-        <h1 style={{ fontSize: 'var(--text-6xl)', fontWeight: 'var(--font-black)', lineHeight: 1.05, marginBottom: '1.5rem' }}>
-          <span className="gradient-text">HireFlow</span>
-        </h1>
-        <p style={{ fontSize: 'var(--text-xl)', color: 'var(--color-text-secondary)', marginBottom: '2.5rem', lineHeight: 1.7 }}>
-          Hire smarter. Faster. Without compromise.
-        </p>
-        <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center', flexWrap: 'wrap' }}>
-          <a href="#" className="btn btn-primary">Get Started</a>
-          <a href="#" className="btn btn-ghost">View Demo</a>
-        </div>
-      </div>
+    <BrowserRouter>
+      <Routes>
+        {/* Foundation Dashboard Layout */}
+        <Route path="/hr" element={<Layout />}>
+          <Route index element={<HRDashboard />} />
+          <Route path="jobs" element={<JobRoles />} />
 
-      <div className="glass-card" style={{ padding: '1.5rem 2rem', marginTop: '2rem' }}>
-        <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--text-sm)', color: 'var(--color-text-muted)' }}>
-          <span style={{ color: 'var(--color-success)' }}>●</span> API running at{' '}
-          <span style={{ color: 'var(--color-accent-tertiary)' }}>http://localhost:4000</span>
-          {' '}· Phase 1 Foundation Complete
-        </p>
-      </div>
-    </div>
+          <Route path="candidates" element={<Candidates />} />
+          <Route path="schedule" element={<CalendarView />} />
+          <Route path="assessments" element={<div className="glass-card" style={{ padding: '32px' }}><h1>Assessments</h1></div>} />
+          <Route path="interviews" element={<div className="glass-card" style={{ padding: '32px' }}><h1>Interviews & Recordings</h1></div>} />
+          <Route path="scorecards" element={<ScorecardReport />} />
+        </Route>
+
+        {/* Interviewer Dashboard Layout (Simplified for now using same layout) */}
+        <Route path="/interviewer" element={<Layout />}>
+          <Route index element={<InterviewerDashboard />} />
+          <Route path="eval" element={<EvaluationForm />} />
+        </Route>
+
+        {/* Technical/Shared Views (No Sidebar) */}
+        <Route path="/engine" element={<div style={{ padding: '20px' }}><CodingEngine /></div>} />
+        <Route path="/room" element={<InterviewRoom />} />
+
+        <Route path="/" element={<Navigate to="/hr" replace />} />
+      </Routes>
+    </BrowserRouter>
   );
 }
 
