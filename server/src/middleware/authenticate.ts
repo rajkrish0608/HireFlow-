@@ -5,9 +5,8 @@ import type { JwtPayload } from '../modules/auth/auth.service';
 
 declare global {
     namespace Express {
-        interface Request {
-            user?: JwtPayload;
-        }
+        // Extend the Passport User interface to include our JWT fields
+        interface User extends JwtPayload { }
     }
 }
 

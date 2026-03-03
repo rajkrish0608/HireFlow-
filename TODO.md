@@ -207,10 +207,33 @@
 
 ---
 
-## Phase 6 – Future / V2 Features
-- [ ] XGBoost for hire success prediction
-- [ ] Skill performance tracking
-- [ ] Enterprise analytics dashboard
-- [ ] Multi-currency payment support
-- [ ] Multi-timezone full support
-- [ ] LinkedIn / GitHub OAuth login
+## Phase 6 – V2 Features (Complete)
+
+### 18. ML & Intelligence Layer
+- [x] Hire success prediction engine – weighted rule-based scoring (rubric 40%, recommendation 25%, skill alignment 20%, experience 15%)
+- [x] `POST /api/ml/predict` – returns score (0–100), confidence (HIGH/MEDIUM/LOW), and recommendation (PROCEED/REVIEW/PASS)
+
+### 19. Skill Performance Tracking
+- [x] Per-skill timeline analysis with trend detection (IMPROVING/STABLE/DECLINING)
+- [x] `GET /api/skills/performance?candidateId=` – aggregated skill scores over time
+- [x] `GET /api/skills/leaderboard` – top interviewers by rating
+
+### 20. Enterprise Analytics Dashboard
+- [x] `GET /api/enterprise/analytics?companyId=` – hiring funnel, cost-per-hire, time-to-hire, top skills, conversion rate
+
+### 21. Multi-Currency Payment Support
+- [x] INR, USD, EUR, GBP support with exchange rates (`server/src/lib/currency.ts`)
+- [x] `GET /api/currencies` – returns supported currencies + rates
+- [x] `getMultiCurrencyPrice()` – converts any package price to all currencies
+
+### 22. Multi-Timezone Full Support
+- [x] `X-Timezone` header parsing middleware (`server/src/middleware/timezone.ts`)
+- [x] `toClientTimezone()` – UTC → client timezone conversion
+- [x] `GET /api/timezones` – curated IANA timezone dropdown options
+
+### 23. LinkedIn / GitHub OAuth Login
+- [x] Passport.js with GitHub + LinkedIn strategies (`server/src/lib/oauth.ts`)
+- [x] `GET /api/auth/github` & `/api/auth/linkedin` – OAuth redirect
+- [x] Callback routes → JWT token → frontend redirect
+- [x] Auto-creates user accounts on first OAuth login
+

@@ -8,6 +8,7 @@ import { redis } from './config/redis';
 
 // ─── Routers ──────────────────────────────────────────────────────────────────
 import authRouter from './modules/auth/auth.router';
+import oauthRouter from './modules/auth/oauth.router';
 import jobsRouter from './modules/jobs/jobs.router';
 import candidatesRouter from './modules/candidates/candidates.router';
 import interviewsRouter from './modules/interviews/interviews.router';
@@ -18,6 +19,9 @@ import recordingsRouter from './modules/recordings/recordings.router';
 import earningsRouter from './modules/earnings/earnings.router';
 import paymentsRouter from './modules/payments/payments.router';
 import adminRouter from './modules/admin/admin.router';
+import mlRouter from './modules/ml/ml.router';
+import skillsRouter from './modules/skills/skills.router';
+import enterpriseRouter from './modules/enterprise/enterprise.router';
 
 // ─── Middleware ───────────────────────────────────────────────────────────────
 import { authenticate } from './middleware/authenticate';
@@ -25,6 +29,14 @@ import { errorHandler } from './middleware/errorHandler';
 import { apiLimiter, authLimiter, paymentLimiter } from './middleware/rateLimiter';
 import { requestId, requestLogger } from './middleware/requestLogger';
 import { recordCheatEvent } from './middleware/antiCheat';
+import { timezoneParser } from './middleware/timezone';
+
+// ─── OAuth ────────────────────────────────────────────────────────────────────
+import { initializePassport } from './lib/oauth';
+
+// ─── Currency ─────────────────────────────────────────────────────────────────
+import { getSupportedCurrencies, getMultiCurrencyPrice } from './lib/currency';
+import { getTimezoneOptions } from './middleware/timezone';
 
 const app = express();
 
@@ -38,9 +50,13 @@ app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 app.set('trust proxy', 1);
 
-// ─── Request Tracing & Logging ────────────────────────────────────────────────
+// ─── Request Tracing, Logging & Timezone ──────────────────────────────────────
 app.use(requestId);
 app.use(requestLogger);
+app.use(timezoneParser);
+
+// ─── Passport OAuth ───────────────────────────────────────────────────────────
+app.use(initializePassport());
 
 // ─── Global Rate Limiter ──────────────────────────────────────────────────────
 app.use('/api/', apiLimiter);
@@ -50,13 +66,22 @@ app.get('/health', (_req, res) => {
     res.json({
         status: 'ok',
         service: 'hireflow-api',
-        version: '3.0.0',
+        version: '4.0.0',
         timestamp: new Date().toISOString(),
     });
 });
 
-// ─── Public Routes ────────────────────────────────────────────────────────────
+// ─── Public Utility Routes ────────────────────────────────────────────────────
+app.get('/api/currencies', (_req, res) => {
+    res.json({ status: 'success', data: getSupportedCurrencies() });
+});
+app.get('/api/timezones', (_req, res) => {
+    res.json({ status: 'success', data: getTimezoneOptions() });
+});
+
+// ─── Auth Routes ──────────────────────────────────────────────────────────────
 app.use('/api/auth', authLimiter, authRouter);
+app.use('/api/auth', oauthRouter); // GitHub & LinkedIn OAuth
 
 // ─── Protected: Profile ───────────────────────────────────────────────────────
 app.get('/api/me', authenticate, (req, res) => {
@@ -91,6 +116,15 @@ app.use('/api/payments', paymentLimiter, paymentsRouter);
 // ─── Admin Dashboard & Analytics ──────────────────────────────────────────────
 app.use('/api/admin', adminRouter);
 
+// ─── V2: ML Intelligence ─────────────────────────────────────────────────────
+app.use('/api/ml', mlRouter);
+
+// ─── V2: Skill Performance ───────────────────────────────────────────────────
+app.use('/api/skills', skillsRouter);
+
+// ─── V2: Enterprise Analytics ─────────────────────────────────────────────────
+app.use('/api/enterprise', enterpriseRouter);
+
 // ─── 404 Handler ──────────────────────────────────────────────────────────────
 app.use((_req, res) => {
     res.status(404).json({ status: 'error', message: 'Route not found.' });
@@ -111,19 +145,24 @@ async function bootstrap() {
         await redis.connect();
 
         server = app.listen(config.port, () => {
-            console.log(`\n🚀 HireFlow API v3.0 → http://localhost:${config.port}`);
+            console.log(`\n🚀 HireFlow API v4.0 → http://localhost:${config.port}`);
             console.log(`   Environment : ${config.nodeEnv}`);
             console.log(`   Health      : http://localhost:${config.port}/health`);
             console.log('\n📋 API Routes:');
             console.log('   POST  /api/auth/login & /register');
+            console.log('   GET   /api/auth/github & /linkedin (OAuth)');
             console.log('   POST  /api/jobs/create');
             console.log('   POST  /api/interviews/schedule');
             console.log('   GET   /api/interviewer/match?jobRoleId=');
             console.log('   POST  /api/scorecard/submit');
             console.log('   POST  /api/payments/order');
             console.log('   POST  /api/coding/challenge/start');
+            console.log('   POST  /api/ml/predict');
+            console.log('   GET   /api/skills/performance');
+            console.log('   GET   /api/enterprise/analytics');
             console.log('   GET   /api/admin/health');
-            console.log('   GET   /api/admin/revenue\n');
+            console.log('   GET   /api/admin/revenue');
+            console.log('   GET   /api/currencies & /timezones\n');
         });
     } catch (error) {
         console.error('[Bootstrap] ❌ Failed to start server:', error);
@@ -134,23 +173,9 @@ async function bootstrap() {
 // ─── Graceful Shutdown ────────────────────────────────────────────────────────
 async function gracefulShutdown(signal: string) {
     console.log(`\n[Shutdown] Received ${signal}. Closing gracefully...`);
-
-    if (server) {
-        server.close(() => {
-            console.log('[Shutdown] HTTP server closed.');
-        });
-    }
-
-    try {
-        await pool.end();
-        console.log('[Shutdown] PostgreSQL pool closed.');
-    } catch { /* ignore */ }
-
-    try {
-        redis.disconnect();
-        console.log('[Shutdown] Redis disconnected.');
-    } catch { /* ignore */ }
-
+    if (server) server.close(() => console.log('[Shutdown] HTTP server closed.'));
+    try { await pool.end(); console.log('[Shutdown] PostgreSQL pool closed.'); } catch { /* ignore */ }
+    try { redis.disconnect(); console.log('[Shutdown] Redis disconnected.'); } catch { /* ignore */ }
     console.log('[Shutdown] ✅ Graceful shutdown complete.');
     process.exit(0);
 }
