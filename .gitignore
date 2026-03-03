@@ -31,3 +31,4 @@ docker-compose.override.yml
 # ── Uploads & Recordings ──────────────────────────
 uploads/
 recordings/
+*.sql.gz

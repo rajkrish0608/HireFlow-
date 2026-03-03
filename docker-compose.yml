@@ -1,6 +1,7 @@
 version: "3.9"
 
 services:
+  # ─── PostgreSQL Database ──────────────────────────────────────────────────────
   postgres:
     image: postgres:15-alpine
     container_name: hireflow_postgres
@@ -15,46 +16,96 @@ services:
       - postgres_data:/var/lib/postgresql/data
     networks:
       - hireflow_net
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-hireflow}" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
+  # ─── Redis Cache ──────────────────────────────────────────────────────────────
   redis:
     image: redis:7-alpine
     container_name: hireflow_redis
     restart: unless-stopped
+    command: redis-server --save 60 1 --loglevel warning
     ports:
       - "6379:6379"
     volumes:
       - redis_data:/data
     networks:
       - hireflow_net
+    healthcheck:
+      test: [ "CMD", "redis-cli", "ping" ]
+      interval: 10s
+      timeout: 3s
+      retries: 5
 
+  # ─── Backend API Server ───────────────────────────────────────────────────────
   server:
     build:
       context: ./server
       dockerfile: Dockerfile
     container_name: hireflow_server
     restart: unless-stopped
-    ports:
-      - "4000:4000"
+    env_file:
+      - .env
     environment:
-      NODE_ENV: development
+      NODE_ENV: ${NODE_ENV:-production}
       PORT: 4000
       DATABASE_URL: postgresql://${POSTGRES_USER:-hireflow}:${POSTGRES_PASSWORD:-hireflow_secret}@postgres:5432/${POSTGRES_DB:-hireflow_db}
       REDIS_URL: redis://redis:6379
-      JWT_SECRET: ${JWT_SECRET:-super_secret_dev_key_change_in_prod}
-      JWT_EXPIRES_IN: 7d
-      BCRYPT_ROUNDS: 12
     depends_on:
-      - postgres
-      - redis
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - hireflow_net
+    healthcheck:
+      test: [ "CMD-SHELL", "wget -qO- http://localhost:4000/health || exit 1" ]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+
+  # ─── Frontend + Nginx Reverse Proxy ──────────────────────────────────────────
+  client:
+    build:
+      context: ./client
+      dockerfile: Dockerfile
+    container_name: hireflow_client
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    depends_on:
+      server:
+        condition: service_healthy
+    networks:
+      - hireflow_net
+
+  # ─── Automated DB Backup ──────────────────────────────────────────────────────
+  db-backup:
+    image: postgres:15-alpine
+    container_name: hireflow_db_backup
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-hireflow}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-hireflow_secret}
+      POSTGRES_DB: ${POSTGRES_DB:-hireflow_db}
+      PGHOST: postgres
     volumes:
-      - ./server:/app
-      - /app/node_modules
+      - ./backups:/backups
+      - ./scripts/backup.sh:/backup.sh
+    entrypoint: [ "/bin/sh", "-c", "while true; do sh /backup.sh; sleep 86400; done" ]
+    depends_on:
+      postgres:
+        condition: service_healthy
     networks:
       - hireflow_net
 
 volumes:
   postgres_data:
   redis_data:
+
 
 networks:
   hireflow_net:
