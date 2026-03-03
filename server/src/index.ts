@@ -16,6 +16,7 @@ import scorecardsRouter from './modules/scorecards/scorecards.router';
 import codingRouter from './modules/coding/coding.router';
 import recordingsRouter from './modules/recordings/recordings.router';
 import earningsRouter from './modules/earnings/earnings.router';
+import paymentsRouter from './modules/payments/payments.router';
 
 // ─── Middleware ───────────────────────────────────────────────────────────────
 import { authenticate } from './middleware/authenticate';
@@ -71,6 +72,9 @@ app.use('/api/recordings', recordingsRouter);
 
 // ─── Earnings Dashboard ───────────────────────────────────────────────────────
 app.use('/api/earnings', earningsRouter);
+
+// ─── Payments & Monetization ─────────────────────────────────────────────────
+app.use('/api/payments', paymentsRouter);
 
 // ─── 404 Handler ──────────────────────────────────────────────────────────────
 app.use((_req, res) => {

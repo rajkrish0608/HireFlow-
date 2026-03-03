@@ -166,15 +166,17 @@
 
 ---
 
-## Phase 4 – Payments & Monetization (Next)
+## Phase 4 – Payments & Monetization (Complete)
 
 ### 14. Payment Integration
-- [ ] Set up payment gateway (Razorpay / Stripe)
-- [ ] Per-interview payment flow (₹3,000–₹6,000)
-- [ ] Bulk package purchasing
-- [ ] Monthly subscription management
-- [ ] Payment record data model + history view
-- [ ] Interviewer payout system
+- [x] Set up payment gateway (Razorpay – `server/src/lib/razorpay.ts`)
+- [x] Per-interview payment flow (₹3,000 Standard / ₹6,000 Premium)
+- [x] Bulk package purchasing (5-pack ₹12,500 / 10-pack ₹20,000)
+- [x] Monthly subscription management (Starter ₹15k / Growth ₹25k/mo)
+- [x] Payment record data model + history view (`GET /api/payments/history`)
+- [x] Interviewer payout system (`POST /api/payments/payout` with IFSC validation)
+- [x] Billing UI page for HR dashboard (Billing.tsx + Billing.css)
+- [x] Razorpay webhook handler for server-side payment confirmation
 - [ ] (Future) Hybrid per-hire commission model
 
 ---

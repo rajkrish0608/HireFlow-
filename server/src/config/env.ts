@@ -34,4 +34,9 @@ export const config = {
         bucketName: process.env.STORAGE_BUCKET || 'hireflow-recordings',
         region: process.env.STORAGE_REGION || 'ap-south-1',
     },
+    razorpay: {
+        keyId: process.env.RAZORPAY_KEY_ID || '',
+        keySecret: process.env.RAZORPAY_KEY_SECRET || '',
+        webhookSecret: process.env.RAZORPAY_WEBHOOK_SECRET || '',
+    },
 } as const;
