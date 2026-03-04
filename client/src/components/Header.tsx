@@ -1,5 +1,4 @@
-import React from 'react';
-import { Search, Bell, Settings, HelpCircle, LayoutGrid } from 'lucide-react';
+import { Search, Bell, Settings, LayoutGrid } from 'lucide-react';
 import { motion } from 'framer-motion';
 
 const Header = () => {

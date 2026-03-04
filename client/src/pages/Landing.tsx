@@ -1,13 +1,10 @@
-import React, { useEffect, useRef, useState, Suspense, useMemo } from 'react';
+import { useEffect, useRef, useState, Suspense, useMemo } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import {
-    Float,
     Stars,
     Html,
     Line,
-    Sphere,
     MeshDistortMaterial,
-    MeshWobbleMaterial,
     OrbitControls,
     PerspectiveCamera,
     useCursor,
@@ -531,7 +528,32 @@ export default function Landing() {
         return () => window.removeEventListener('scroll', onScroll);
     }, []);
 
-    // Removed Lenis smooth scroll to fix native scrolling issues
+    // Lenis smooth scroll synchronized with GSAP
+    useEffect(() => {
+        let lenis: any;
+        let tickerFn: any;
+
+        import('@studio-freight/lenis').then(({ default: Lenis }) => {
+            lenis = new Lenis({
+                lerp: 0.08,
+                duration: 1.2,
+                smoothWheel: true,
+                orientation: 'vertical',
+                gestureOrientation: 'vertical'
+            });
+
+            lenis.on('scroll', ScrollTrigger.update);
+
+            tickerFn = (time: number) => lenis.raf(time * 1000);
+            gsap.ticker.add(tickerFn);
+            gsap.ticker.lagSmoothing(0);
+        });
+
+        return () => {
+            if (lenis) lenis.destroy();
+            if (tickerFn) gsap.ticker.remove(tickerFn);
+        };
+    }, []);
 
     // GSAP ScrollTrigger for section reveals
     useEffect(() => {
