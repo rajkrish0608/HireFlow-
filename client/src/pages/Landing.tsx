@@ -528,32 +528,7 @@ export default function Landing() {
         return () => window.removeEventListener('scroll', onScroll);
     }, []);
 
-    // Lenis smooth scroll synchronized with GSAP
-    useEffect(() => {
-        let lenis: any;
-        let tickerFn: any;
-
-        import('@studio-freight/lenis').then(({ default: Lenis }) => {
-            lenis = new Lenis({
-                lerp: 0.08,
-                duration: 1.2,
-                smoothWheel: true,
-                orientation: 'vertical',
-                gestureOrientation: 'vertical'
-            });
-
-            lenis.on('scroll', ScrollTrigger.update);
-
-            tickerFn = (time: number) => lenis.raf(time * 1000);
-            gsap.ticker.add(tickerFn);
-            gsap.ticker.lagSmoothing(0);
-        });
-
-        return () => {
-            if (lenis) lenis.destroy();
-            if (tickerFn) gsap.ticker.remove(tickerFn);
-        };
-    }, []);
+    // Native scroll — no Lenis delay
 
     // GSAP ScrollTrigger for section reveals
     useEffect(() => {

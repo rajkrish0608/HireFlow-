@@ -5,6 +5,7 @@
     background: var(--color-bg-primary);
     overflow-x: hidden;
     cursor: none;
+    scroll-behavior: smooth;
 }
 
 /* ─── 3D Loader ──────────────────────────────────────────────────────────── */
